@@ -1,0 +1,32 @@
+package user
+
+import (
+	"net/http"
+
+	"github.com/saurav11sarkar/go/internal/middlewares"
+	"github.com/saurav11sarkar/go/internal/utils"
+)
+
+type Handler struct {
+	service *Service
+}
+
+func NewHandler(service *Service) *Handler {
+	return &Handler{
+		service: service,
+	}
+}
+
+func (h *Handler) Profile(w http.ResponseWriter, r *http.Request) {
+	userData,ok := r.Context().Value(middlewares.UserContextKey).(*utils.JwtClaims)
+	if !ok || userData == nil {
+		utils.HandlerError(w, utils.NewAppError(http.StatusUnauthorized, "UNAUTHORIZED", "Unauthorized"))
+		return
+	}
+	user, err := h.service.Profile(r.Context(), userData.UserID)
+	if err != nil {
+		utils.HandlerError(w, err)
+		return
+	}
+	utils.JSON(w, http.StatusOK, "Profile fetched successfully", user)
+}

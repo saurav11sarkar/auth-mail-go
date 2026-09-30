@@ -6,6 +6,7 @@ import (
 	"github.com/saurav11sarkar/go/internal/auth"
 	"github.com/saurav11sarkar/go/internal/config"
 	"github.com/saurav11sarkar/go/internal/middlewares"
+	"github.com/saurav11sarkar/go/internal/user"
 	"github.com/saurav11sarkar/go/internal/utils"
 )
 
@@ -18,9 +19,8 @@ func NewRouter(deps *Deps, cfg config.Config) http.Handler {
 
 	v1Mux := http.NewServeMux()
 
-
 	auth.AuthRouter(v1Mux, deps.Auth)
-
+	user.UserRouter(v1Mux, deps.User)
 
 	v1Mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		utils.Error(w, http.StatusNotFound, "API v1 endpoint not found")

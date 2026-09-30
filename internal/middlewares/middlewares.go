@@ -47,6 +47,7 @@ func RequestID(next http.Handler) http.Handler {
 			id = newRequestID()
 		}
 		r.Header.Set("X-Request-Id", id)
+		w.Header().Set("X-Request-Id", id)
 		next.ServeHTTP(w, r)
 	})
 }
