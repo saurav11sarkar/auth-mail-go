@@ -24,11 +24,7 @@ func (s *Service) UpdateProfile(
 	ctx context.Context,
 	input UpdateProfileInput,
 ) (*User, error) {
-	user, err := s.repo.UpdateProfile(ctx, input.UserID, &User{
-		Name:   input.Name,
-		Role:   input.Role,
-		Status: input.Status,
-	})
+	user, err := s.repo.UpdateProfile(ctx, input)
 	if err != nil {
 		return nil, err
 	}

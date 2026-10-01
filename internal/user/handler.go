@@ -38,7 +38,7 @@ func (h *Handler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		utils.HandlerError(w, utils.NewAppError(http.StatusUnauthorized, "UNAUTHORIZED", "Unauthorized"))
 		return
 	}
-	var req dto.ProfileRequestDTO
+	var req dto.UpdateProfileRequestDTO
 	err := utils.DecodeJSON(r, &req)
 	if err != nil {
 		writeError(w, err)
@@ -46,6 +46,14 @@ func (h *Handler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := utils.ValidateStruct(req); err != nil {
 		writeError(w, err)
+		return
+	}
+	if req.Name == nil && req.Role == nil && req.Status == nil {
+		writeError(w, utils.NewAppError(http.StatusBadRequest, "VALIDATION_ERROR", "Provide at least one field to update"))
+		return
+	}
+	if claims.Role != "admin" && (req.Role != nil || req.Status != nil) {
+		writeError(w, utils.NewAppError(http.StatusForbidden, "FORBIDDEN", "Only admins can change role or status"))
 		return
 	}
 	user, err := h.service.UpdateProfile(r.Context(), UpdateProfileInput{

@@ -5,7 +5,7 @@ type ProfileInput struct{ UserID string }
 
 type UpdateProfileInput struct {
 	UserID string
-	Name   string
-	Role   string
-	Status string
+	Name   *string
+	Role   *string
+	Status *string
 }
