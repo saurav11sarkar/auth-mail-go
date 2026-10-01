@@ -20,6 +20,9 @@ func (e *AppError) Error() string {
 	return e.Message
 }
 
+// Unwrap preserves errors.Is/errors.As through application errors.
+func (e *AppError) Unwrap() error { return e.Err }
+
 func NewAppError(status int, code string, message string) *AppError {
 	return &AppError{
 		Status:  status,

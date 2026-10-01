@@ -18,15 +18,15 @@ func NewHandler(service *Service) *Handler {
 }
 
 func (h *Handler) Profile(w http.ResponseWriter, r *http.Request) {
-	userData,ok := r.Context().Value(middlewares.UserContextKey).(*utils.JwtClaims)
+	userData, ok := r.Context().Value(middlewares.UserContextKey).(*utils.JwtClaims)
 	if !ok || userData == nil {
 		utils.HandlerError(w, utils.NewAppError(http.StatusUnauthorized, "UNAUTHORIZED", "Unauthorized"))
 		return
 	}
-	user, err := h.service.Profile(r.Context(), userData.UserID)
+	user, err := h.service.Profile(r.Context(), ProfileInput{UserID: userData.UserID})
 	if err != nil {
-		utils.HandlerError(w, err)
+		writeError(w, err)
 		return
 	}
-	utils.JSON(w, http.StatusOK, "Profile fetched successfully", user)
+	utils.JSON(w, http.StatusOK, "Profile fetched successfully", profileResponse(user))
 }

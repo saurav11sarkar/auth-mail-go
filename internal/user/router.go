@@ -6,6 +6,7 @@ import (
 	"github.com/saurav11sarkar/go/internal/middlewares"
 )
 
-func UserRouter(mux *http.ServeMux, h *Handler) {
-	mux.Handle("GET /user/profile", middlewares.Auth("admin", "user")(http.HandlerFunc(h.Profile)))
+func RegisterRoutes(mux *http.ServeMux, h *Handler, accessSecret string) {
+	profile := middlewares.Auth(accessSecret, "admin", "user")(http.HandlerFunc(h.Profile))
+	mux.Handle("/user/profile", middlewares.Method(http.MethodGet, profile))
 }

@@ -19,8 +19,8 @@ func NewRouter(deps *Deps, cfg config.Config) http.Handler {
 
 	v1Mux := http.NewServeMux()
 
-	auth.AuthRouter(v1Mux, deps.Auth)
-	user.UserRouter(v1Mux, deps.User)
+	auth.RegisterRoutes(v1Mux, deps.Auth)
+	user.RegisterRoutes(v1Mux, deps.User, cfg.Auth.JwtAccessSecret)
 
 	v1Mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		utils.Error(w, http.StatusNotFound, "API v1 endpoint not found")
@@ -31,9 +31,9 @@ func NewRouter(deps *Deps, cfg config.Config) http.Handler {
 	})
 
 	return middlewares.Chain(mux,
-		middlewares.CORS(cfg.CorsOrigin),
 		middlewares.RequestID,
 		middlewares.Logger,
 		middlewares.Recover,
+		middlewares.CORS(cfg.CorsOrigin),
 	)
 }

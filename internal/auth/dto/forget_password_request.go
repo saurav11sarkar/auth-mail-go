@@ -1,5 +1,5 @@
 package dto
 
-type ForgetPasswordDTO struct {
+type ForgetPasswordRequestDTO struct {
 	Email string `json:"email" validate:"required,email"`
 }

@@ -12,12 +12,12 @@ import (
 
 func NewHandler(db *pgxpool.Pool, cfg config.Config) (http.Handler, error) {
 
-	authrepo := auth.NewResposistory(db)
+	authrepo := auth.NewRepository(db)
 	authservice := auth.NewService(authrepo, cfg)
-	authhandler := auth.NewHandler(authservice)
+	authhandler := auth.NewHandler(authservice, cfg)
 
 	userrepo := user.NewRepository(db)
-	userservice := user.NewService(userrepo, cfg)
+	userservice := user.NewService(userrepo)
 	userhandler := user.NewHandler(userservice)
 
 	deps := routes.Deps{

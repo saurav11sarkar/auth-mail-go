@@ -5,24 +5,21 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
-	"net/http"
 	"strings"
 	"time"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/saurav11sarkar/go/internal/auth/dto"
 	"github.com/saurav11sarkar/go/internal/config"
 	"github.com/saurav11sarkar/go/internal/email"
 	"github.com/saurav11sarkar/go/internal/utils"
 )
 
 type Service struct {
-	repo  *Resposistory
+	repo  *Repository
 	cfg   config.Config
 	email *email.Email
 }
 
-func NewService(repo *Resposistory, cfg config.Config) *Service {
+func NewService(repo *Repository, cfg config.Config) *Service {
 	return &Service{
 		repo:  repo,
 		cfg:   cfg,
@@ -30,50 +27,45 @@ func NewService(repo *Resposistory, cfg config.Config) *Service {
 	}
 }
 
-func (s *Service) Create(ctx context.Context, registerDto dto.RegisterDTO) (Register, error) {
-	email := strings.ToLower(strings.TrimSpace(registerDto.Email))
+func (s *Service) Create(ctx context.Context, input RegisterInput) (Account, error) {
+	email := strings.ToLower(strings.TrimSpace(input.Email))
 	_, err := s.repo.GetEmail(ctx, email)
 	if err == nil {
-		return Register{}, utils.NewAppError(http.StatusConflict, "EMAIL_ALREADY_EXISTS", "Email already registered")
+		return Account{}, ErrEmailExists
 	}
-	if !errors.Is(err, pgx.ErrNoRows) {
-		return Register{}, utils.NewAppError(http.StatusInternalServerError, "INTERNAL_SERVER_ERROR", "Internal server error")
+	if !errors.Is(err, ErrAccountNotFound) {
+		return Account{}, fmt.Errorf("authentication operation: %w", err)
 	}
-	hash, err := utils.HashPassword(registerDto.Password)
+	hash, err := utils.HashPassword(input.Password)
 	if err != nil {
-		return Register{}, utils.NewAppError(http.StatusInternalServerError, "INTERNAL_SERVER_ERROR", "Internal server error")
+		return Account{}, fmt.Errorf("authentication operation: %w", err)
 	}
-	user := Register{
+	user := Account{
 		ID:       utils.NewID(),
 		Email:    email,
 		Password: hash,
-		Name:     registerDto.Name,
+		Name:     input.Name,
 		Role:     "user",
 		Status:   "active",
 	}
 	user, err = s.repo.Create(ctx, user)
 	if err != nil {
-		return Register{}, utils.NewAppError(http.StatusInternalServerError, "INTERNAL_SERVER_ERROR", "Internal server error")
+		return Account{}, fmt.Errorf("authentication operation: %w", err)
 	}
 	return user, nil
 }
 
-func (s *Service) Login(ctx context.Context, loginDto dto.LoginDTO) (Login, error) {
-	user, err := s.repo.GetEmail(ctx, strings.ToLower(strings.TrimSpace(loginDto.Email)))
+func (s *Service) Login(ctx context.Context, input LoginInput) (LoginResult, error) {
+	user, err := s.repo.GetEmail(ctx, strings.ToLower(strings.TrimSpace(input.Email)))
 	if err != nil {
-		return Login{}, utils.NewAppError(
-			http.StatusUnauthorized,
-			"UNAUTHORIZED",
-			"Invalid email or password",
-		)
+		if errors.Is(err, ErrAccountNotFound) {
+			return LoginResult{}, ErrInvalidCredentials
+		}
+		return LoginResult{}, fmt.Errorf("login lookup: %w", err)
 	}
 
-	if !utils.ComparePassword(loginDto.Password, user.Password) {
-		return Login{}, utils.NewAppError(
-			http.StatusUnauthorized,
-			"UNAUTHORIZED",
-			"Invalid email or password",
-		)
+	if !utils.ComparePassword(input.Password, user.Password) {
+		return LoginResult{}, ErrInvalidCredentials
 	}
 
 	accessToken, err := utils.CreateJwtToken(
@@ -84,11 +76,7 @@ func (s *Service) Login(ctx context.Context, loginDto dto.LoginDTO) (Login, erro
 		time.Duration(s.cfg.Auth.AccessTokenMinutes)*time.Minute,
 	)
 	if err != nil {
-		return Login{}, utils.NewAppError(
-			http.StatusInternalServerError,
-			"INTERNAL_SERVER_ERROR",
-			"Internal server error",
-		)
+		return LoginResult{}, fmt.Errorf("issue token: %w", err)
 	}
 
 	refreshToken, err := utils.CreateJwtToken(
@@ -99,51 +87,31 @@ func (s *Service) Login(ctx context.Context, loginDto dto.LoginDTO) (Login, erro
 		time.Duration(s.cfg.Auth.RefreshTokenDays)*24*time.Hour,
 	)
 	if err != nil {
-		return Login{}, utils.NewAppError(
-			http.StatusInternalServerError,
-			"INTERNAL_SERVER_ERROR",
-			"Internal server error",
-		)
+		return LoginResult{}, fmt.Errorf("issue token: %w", err)
 	}
 
-	return Login{
-		ID:           user.ID,
-		Email:        user.Email,
-		Name:         user.Name,
-		Role:         user.Role,
-		Status:       user.Status,
-		Photo:        user.Photo,
+	return LoginResult{
+		Account:      user,
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
-		CreatedAt:    user.CreatedAt,
-		UpdatedAt:    user.UpdatedAt,
 	}, nil
 }
 
-func (s *Service) Refresh(ctx context.Context, refreshToken string) (Login, error) {
-	claims, err := utils.ParseJwtToken(refreshToken, s.cfg.Auth.JwtRefreshSecret, "refresh")
+func (s *Service) Refresh(ctx context.Context, input RefreshInput) (LoginResult, error) {
+	claims, err := utils.ParseJwtToken(input.RefreshToken, s.cfg.Auth.JwtRefreshSecret, "refresh")
 	if err != nil {
-		return Login{}, utils.NewAppError(
-			http.StatusUnauthorized,
-			"UNAUTHORIZED",
-			"Invalid refresh token",
-		)
+		return LoginResult{}, ErrInvalidRefreshToken
 	}
 	user, err := s.repo.GetUserID(ctx, claims.UserID)
 	if err != nil {
-		return Login{}, utils.NewAppError(
-			http.StatusUnauthorized,
-			"UNAUTHORIZED",
-			"Invalid refresh token",
-		)
+		if errors.Is(err, ErrAccountNotFound) {
+			return LoginResult{}, ErrInvalidRefreshToken
+		}
+		return LoginResult{}, fmt.Errorf("refresh lookup: %w", err)
 	}
 
 	if user.Status != "active" {
-		return Login{}, utils.NewAppError(
-			http.StatusUnauthorized,
-			"UNAUTHORIZED",
-			"Invalid refresh token",
-		)
+		return LoginResult{}, ErrInvalidRefreshToken
 	}
 
 	accessToken, err := utils.CreateJwtToken(
@@ -154,11 +122,7 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (Login, erro
 		time.Duration(s.cfg.Auth.AccessTokenMinutes)*time.Minute,
 	)
 	if err != nil {
-		return Login{}, utils.NewAppError(
-			http.StatusInternalServerError,
-			"INTERNAL_SERVER_ERROR",
-			"Internal server error",
-		)
+		return LoginResult{}, fmt.Errorf("issue token: %w", err)
 	}
 
 	newRefreshToken, err := utils.CreateJwtToken(
@@ -169,29 +133,18 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (Login, erro
 		time.Duration(s.cfg.Auth.RefreshTokenDays)*24*time.Hour,
 	)
 	if err != nil {
-		return Login{}, utils.NewAppError(
-			http.StatusInternalServerError,
-			"INTERNAL_SERVER_ERROR",
-			"Internal server error",
-		)
+		return LoginResult{}, fmt.Errorf("issue token: %w", err)
 	}
 
-	return Login{
-		ID:           user.ID,
-		Email:        user.Email,
-		Name:         user.Name,
-		Role:         user.Role,
-		Status:       user.Status,
-		Photo:        user.Photo,
+	return LoginResult{
+		Account:      user,
 		AccessToken:  accessToken,
 		RefreshToken: newRefreshToken,
-		CreatedAt:    user.CreatedAt,
-		UpdatedAt:    user.UpdatedAt,
 	}, nil
 }
 
-func (s *Service) ForgetPassword(ctx context.Context, forgetPasswordDto dto.ForgetPasswordDTO) error {
-	email := strings.ToLower(strings.TrimSpace(forgetPasswordDto.Email))
+func (s *Service) ForgetPassword(ctx context.Context, input ForgetPasswordInput) error {
+	email := strings.ToLower(strings.TrimSpace(input.Email))
 
 	_, err := s.repo.GetEmail(ctx, email)
 	if err != nil {
@@ -215,19 +168,19 @@ func (s *Service) ForgetPassword(ctx context.Context, forgetPasswordDto dto.Forg
 	return nil
 }
 
-func (s *Service) ResetPassword(ctx context.Context, resetPasswordDto dto.ResetPasswordDTO) error {
-	email := strings.ToLower(strings.TrimSpace(resetPasswordDto.Email))
-	hashedPassword, err := utils.HashPassword(resetPasswordDto.Password)
+func (s *Service) ResetPassword(ctx context.Context, input ResetPasswordInput) error {
+	email := strings.ToLower(strings.TrimSpace(input.Email))
+	hashedPassword, err := utils.HashPassword(input.Password)
 	if err != nil {
-		return utils.NewAppError(http.StatusInternalServerError, "INTERNAL_SERVER_ERROR", "Internal server error")
+		return fmt.Errorf("authentication operation: %w", err)
 	}
 
-	reset, err := s.repo.ResetPassword(ctx, email, resetPasswordDto.OTP, hashedPassword)
+	reset, err := s.repo.ResetPassword(ctx, email, input.OTP, hashedPassword)
 	if err != nil {
-		return utils.NewAppError(http.StatusInternalServerError, "INTERNAL_SERVER_ERROR", "Internal server error")
+		return fmt.Errorf("authentication operation: %w", err)
 	}
 	if !reset {
-		return utils.NewAppError(http.StatusBadRequest, "INVALID_OR_EXPIRED_OTP", "Invalid or expired OTP")
+		return ErrInvalidOTP
 	}
 	return nil
 }

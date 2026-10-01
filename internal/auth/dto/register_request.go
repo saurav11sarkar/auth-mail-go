@@ -1,7 +1,7 @@
 package dto
 
-type ResetPasswordDTO struct {
+type RegisterRequestDTO struct {
+	Name     string `json:"name" validate:"required,min=2,max=255"`
 	Email    string `json:"email" validate:"required,email"`
-	OTP      string `json:"otp" validate:"required,len=6,numeric"`
 	Password string `json:"password" validate:"required,min=8,max=255"`
 }

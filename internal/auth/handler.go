@@ -14,127 +14,124 @@ type Handler struct {
 	cfg     config.Config
 }
 
-func NewHandler(service *Service) *Handler {
+func NewHandler(service *Service, cfg config.Config) *Handler {
 	return &Handler{
 		service: service,
-		cfg:     config.Config{},
+		cfg:     cfg,
 	}
 }
 
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
-	var registerDto dto.RegisterDTO
-	err := utils.DecodeJSON(r, &registerDto)
+	var req dto.RegisterRequestDTO
+	err := utils.DecodeJSON(r, &req)
 	if err != nil {
-		utils.HandlerError(w, err)
+		writeError(w, err)
 		return
 	}
-	if err := utils.ValidateStruct(registerDto); err != nil {
-		utils.HandlerError(w, err)
+	if err := utils.ValidateStruct(req); err != nil {
+		writeError(w, err)
 		return
 	}
-	user, err := h.service.Create(r.Context(), registerDto)
+	user, err := h.service.Create(r.Context(), RegisterInput{Name: req.Name, Email: req.Email, Password: req.Password})
 	if err != nil {
-		utils.HandlerError(w, err)
+		writeError(w, err)
 		return
 	}
-	utils.JSON(w, http.StatusOK, "User created successfully", user)
+	utils.JSON(w, http.StatusOK, "User created successfully", registerResponse(user))
 }
 
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
-	var loginDto dto.LoginDTO
-	err := utils.DecodeJSON(r, &loginDto)
+	var req dto.LoginRequestDTO
+	err := utils.DecodeJSON(r, &req)
 	if err != nil {
-		utils.HandlerError(w, err)
+		writeError(w, err)
 		return
 	}
-	if err := utils.ValidateStruct(loginDto); err != nil {
-		utils.HandlerError(w, err)
+	if err := utils.ValidateStruct(req); err != nil {
+		writeError(w, err)
 		return
 	}
-	user, err := h.service.Login(r.Context(), loginDto)
+	user, err := h.service.Login(r.Context(), LoginInput{Email: req.Email, Password: req.Password})
 	if err != nil {
-		utils.HandlerError(w, err)
+		writeError(w, err)
 		return
 	}
 
-	http.SetCookie(w, &http.Cookie{
-		Name:     "refresh_token",
-		Value:    user.RefreshToken,
-		Path:     "/auth",
-		HttpOnly: true,
-		Secure:   h.cfg.Env == "production",
-		SameSite: http.SameSiteLaxMode,
-		MaxAge:   int(time.Duration(h.cfg.Auth.RefreshTokenDays) * 24 * time.Hour),
-	})
+	h.setRefreshCookie(w, user.RefreshToken)
 
-	utils.JSON(w, http.StatusOK, "User login successfully", user)
+	utils.JSON(w, http.StatusOK, "User login successfully", loginResponse(user))
 }
 
 func (h *Handler) Refresh(w http.ResponseWriter, r *http.Request) {
-	var refreshDto dto.RefreshDTO
-	err := utils.DecodeJSON(r, &refreshDto)
+	var req dto.RefreshRequestDTO
+	err := utils.DecodeJSON(r, &req)
 	if err != nil {
-		utils.HandlerError(w, err)
+		writeError(w, err)
 		return
 	}
-	if err := utils.ValidateStruct(refreshDto); err != nil {
-		utils.HandlerError(w, err)
+	if err := utils.ValidateStruct(req); err != nil {
+		writeError(w, err)
 		return
 	}
-	user, err := h.service.Refresh(r.Context(), refreshDto.RefreshToken)
+	user, err := h.service.Refresh(r.Context(), RefreshInput{RefreshToken: req.RefreshToken})
 	if err != nil {
-		utils.HandlerError(w, err)
+		writeError(w, err)
 		return
 	}
 
-	http.SetCookie(w, &http.Cookie{
-		Name:     "refresh_token",
-		Value:    user.RefreshToken,
-		Path:     "/auth",
-		HttpOnly: true,
-		Secure:   h.cfg.Env == "production",
-		SameSite: http.SameSiteLaxMode,
-		MaxAge:   int(time.Duration(h.cfg.Auth.RefreshTokenDays) * 24 * time.Hour),
-	})
+	h.setRefreshCookie(w, user.RefreshToken)
 
-	utils.JSON(w, http.StatusOK, "User login successfully", user)
+	utils.JSON(w, http.StatusOK, "User login successfully", loginResponse(user))
 }
 
 func (h *Handler) ForgetPassword(w http.ResponseWriter, r *http.Request) {
-	var forgetPasswordDto dto.ForgetPasswordDTO
-	err := utils.DecodeJSON(r, &forgetPasswordDto)
+	var req dto.ForgetPasswordRequestDTO
+	err := utils.DecodeJSON(r, &req)
 	if err != nil {
-		utils.HandlerError(w, err)
+		writeError(w, err)
 		return
 	}
-	if err := utils.ValidateStruct(forgetPasswordDto); err != nil {
-		utils.HandlerError(w, err)
+	if err := utils.ValidateStruct(req); err != nil {
+		writeError(w, err)
 		return
 	}
-	err = h.service.ForgetPassword(r.Context(), forgetPasswordDto)
+	err = h.service.ForgetPassword(r.Context(), ForgetPasswordInput{Email: req.Email})
 	if err != nil {
-		utils.HandlerError(w, err)
+		writeError(w, err)
 		return
 	}
 	utils.JSON(w, http.StatusOK, "Password reset instructions sent successfully", nil)
 }
 
 func (h *Handler) ResetPassword(w http.ResponseWriter, r *http.Request) {
-	var resetPasswordDto dto.ResetPasswordDTO
-	err := utils.DecodeJSON(r, &resetPasswordDto)
+	var req dto.ResetPasswordRequestDTO
+	err := utils.DecodeJSON(r, &req)
 	if err != nil {
-		utils.HandlerError(w, err)
+		writeError(w, err)
 		return
 	}
-	if err := utils.ValidateStruct(resetPasswordDto); err != nil {
-		utils.HandlerError(w, err)
+	if err := utils.ValidateStruct(req); err != nil {
+		writeError(w, err)
 		return
 	}
-	err = h.service.ResetPassword(r.Context(), resetPasswordDto)
+	err = h.service.ResetPassword(r.Context(), ResetPasswordInput{Email: req.Email, OTP: req.OTP, Password: req.Password})
 	if err != nil {
-		utils.HandlerError(w, err)
+		writeError(w, err)
 		return
 	}
 
 	utils.JSON(w, http.StatusOK, "Password reset successfully", nil)
+}
+
+// Both token endpoints use the same cookie policy. MaxAge is measured in seconds.
+func (h *Handler) setRefreshCookie(w http.ResponseWriter, token string) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     "refresh_token",
+		Value:    token,
+		Path:     "/api/v1/auth",
+		HttpOnly: true,
+		Secure:   h.cfg.Env == "production",
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   int((time.Duration(h.cfg.Auth.RefreshTokenDays) * 24 * time.Hour) / time.Second),
+	})
 }
