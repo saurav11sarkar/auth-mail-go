@@ -22,9 +22,6 @@ func NewRouter(deps *Deps, cfg config.Config) http.Handler {
 	auth.RegisterRoutes(v1Mux, deps.Auth)
 	user.RegisterRoutes(v1Mux, deps.User, cfg.Auth.JwtAccessSecret)
 
-	v1Mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		utils.Error(w, http.StatusNotFound, "API v1 endpoint not found")
-	})
 	mux.Handle("/api/v1/", http.StripPrefix("/api/v1", v1Mux))
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		utils.Error(w, http.StatusNotFound, "Route not found")

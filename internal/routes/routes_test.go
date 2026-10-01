@@ -24,6 +24,8 @@ func TestAPIRouting(t *testing.T) {
 		{"GET", "/api/v1/auth/login", "", 405},
 		{"POST", "/api/v1/user/profile", "", 405},
 		{"GET", "/api/v1/user/profile", "", 401},
+		{"PUT", "/api/v1/user/profile", "{}", 401},
+		{"PATCH", "/api/v1/user/profile", "{}", 405},
 		{"POST", "/api/v1/auth/register", "{}", 400},
 		{"POST", "/api/v1/auth/login", "{", 400},
 		{"POST", "/api/v1/auth/refresh", "{}", 400},
@@ -42,7 +44,11 @@ func TestAPIRouting(t *testing.T) {
 			if w.Header().Get("X-Request-Id") == "" {
 				t.Fatal("missing request ID")
 			}
-			if tc.status != http.StatusNoContent && w.Header().Get("Content-Type") != "application/json" {
+			if tc.status == http.StatusMethodNotAllowed || tc.status == http.StatusNotFound {
+				if !strings.HasPrefix(w.Header().Get("Content-Type"), "text/plain") {
+					t.Fatal("expected native ServeMux error response")
+				}
+			} else if tc.status != http.StatusNoContent && w.Header().Get("Content-Type") != "application/json" {
 				t.Fatal("expected JSON")
 			}
 			if tc.status == 405 && w.Header().Get("Allow") == "" {

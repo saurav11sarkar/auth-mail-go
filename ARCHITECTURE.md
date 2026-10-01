@@ -41,7 +41,7 @@ Login/refresh-এ missing account হলে 401, unexpected database failure হ
 
 ## Client compatibility এবং সীমা
 
-- Route paths, request validation rules, success status/message এবং response envelope বদলানো হয়নি। Auth routes এখন POST-only; profile GET/HEAD। ভুল method-এ JSON 405 এবং Allow header ফেরে। Registration এখনও 200 ফেরায়।
+- Route paths, request validation rules, success status/message এবং response envelope বদলানো হয়নি। Auth routes এখন POST-only; profile GET/HEAD এবং update PUT। ভুল method-এ Go ServeMux-এর default text 405 এবং Allow header ফেরে। Registration এখনও 200 ফেরায়।
 - Auth timestamps `created_at/updated_at`; profile timestamps `createdAt/updatedAt`—আগের নামই আছে।
 - Registration-এর পুরনো zero `otp_expires_at` field compatibility-এর জন্য রয়ে গেছে। Actual OTP/expiry response mapper কখনো কপি করে না। পরবর্তী API version-এ এই legacy fields বাদ দেওয়া যায়।
 - Login/refresh token এখনও JSON-এ থাকে; refresh endpoint এখনও body-এর refresh_token পড়ে। Cookie-only auth-এ পরিবর্তন করা হয়নি।
@@ -69,8 +69,8 @@ Login/refresh-এ missing account হলে 401, unexpected database failure হ
 
 - `internal/auth/router.go` এবং `internal/user/router.go`: feature-এর RegisterRoutes।
 - `internal/routes/routes.go`: /api/v1 mount এবং global chain।
-- Chain: RequestID → Logger → Recover → CORS → router → Method → Auth (profile-এর জন্য) → handler।
-- Middleware আলাদা ফাইলে: chain.go, cors.go, request_id.go, logger.go, recover.go, method.go, auth.go।
+- Chain: RequestID → Logger → Recover → CORS → router (Go method pattern) → Auth (profile-এর জন্য) → handler।
+- Middleware আলাদা ফাইলে: chain.go, cors.go, request_id.go, logger.go, recover.go, auth.go।
 - Auth secret startup config থেকে আসে; প্রতি request-এ environment load হয় না। Valid token-এর role না মিললে 403।
 - Request ID server তৈরি করে; CORS সেটি browser-এ expose করে। Logger query string log করে না।
 - Recovery JSON 500 পাঠায়; ইতোমধ্যে response লেখা হয়ে গেলে HTTP status বদলানো যায় না। Streaming handler যোগ করলে recovery policy পুনর্বিবেচনা করতে হবে।
@@ -78,3 +78,4 @@ Login/refresh-এ missing account হলে 401, unexpected database failure হ
 - Existing handler error body (`status/code/message`) ও route-not-found envelope compatibility-এর জন্য এখনও পৃথক। Client migration ছাড়া global error schema বদলানো হয়নি।
 
 Auth DTO naming: register_request.go, register_response.go, login_request.go, login_response.go, refresh_request.go, forget_password_request.go, reset_password_request.go।
+Routing-এ GET/PUT/POST pattern সরাসরি ServeMux যাচাই করে। middlewares.Method সরানো হয়েছে। Custom method fallback নেই। API router-এর catch-all সরানো হয়েছে, তাই unknown API path-এ native text 404 ও unsupported method-এ native text 405 ফেরে।
