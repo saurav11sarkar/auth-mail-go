@@ -41,7 +41,6 @@ func (s *Service) Create(ctx context.Context, input RegisterInput) (Account, err
 		return Account{}, fmt.Errorf("authentication operation: %w", err)
 	}
 	user := Account{
-		ID:       utils.NewID(),
 		Email:    email,
 		Password: hash,
 		Name:     input.Name,
