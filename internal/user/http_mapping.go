@@ -17,6 +17,9 @@ func profileResponse(account *User) dto.UserProfileResponse {
 }
 
 func writeError(w http.ResponseWriter, err error) {
+	if errors.Is(err, ErrInvalidListQuery) {
+		err = utils.NewAppError(http.StatusBadRequest, "INVALID_QUERY", "Invalid pagination, sorting, or user filter")
+	}
 	if errors.Is(err, ErrUserNotFound) {
 		err = utils.NewAppError(http.StatusNotFound, "NOT_FOUND", "User not found")
 	}

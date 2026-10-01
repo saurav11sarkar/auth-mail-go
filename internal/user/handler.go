@@ -68,3 +68,31 @@ func (h *Handler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	}
 	utils.JSON(w, http.StatusOK, "Profile updated successfully", profileResponse(user))
 }
+
+func (h *Handler) GetAllUsers(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
+	query := utils.NewQuery(r.URL.Query())
+
+	result, err := h.service.GetAllUsers(r.Context(), query)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+
+	users := make([]dto.UserProfileResponse, 0, len(result.Users))
+	for i := range result.Users {
+		users = append(users, profileResponse(&result.Users[i]))
+	}
+
+	response := dto.UsersResponse{
+		Users:      users,
+		Total:      result.Total,
+		Page:       result.Page,
+		Limit:      result.Limit,
+		TotalPages: result.TotalPages,
+	}
+
+	utils.JSON(w, http.StatusOK, "Users fetched successfully", response)
+}
