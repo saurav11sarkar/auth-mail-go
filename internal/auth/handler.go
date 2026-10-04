@@ -63,26 +63,34 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) Refresh(w http.ResponseWriter, r *http.Request) {
-	var req dto.RefreshRequestDTO
-	err := utils.DecodeJSON(r, &req)
-	if err != nil {
-		writeError(w, err)
-		return
+	var token string
+	// ১. যদি ব্রাউজার থেকে রিকোয়েস্ট আসে এবং কুকি থাকে:
+	if cookie, err := r.Cookie("refresh_token"); err == nil && cookie.Value != "" {
+		token = cookie.Value
+	} else {
+		// ২. যদি কুকি না থাকে (যেমন মোবাইল অ্যাপ), তবে JSON বডি ডিকোড এবং ভ্যালিডেট করতে হবে:
+		var req dto.RefreshRequestDTO
+		if err := utils.DecodeJSON(r, &req); err != nil {
+			writeError(w, err)
+			return
+		}
+		if err := utils.ValidateStruct(req); err != nil {
+			writeError(w, err) // খালি {} পাঠালে এটা ৪০০ ভ্যালিডেশন এরর রিটার্ন করবে
+			return
+		}
+		token = req.RefreshToken
 	}
-	if err := utils.ValidateStruct(req); err != nil {
-		writeError(w, err)
-		return
-	}
-	user, err := h.service.Refresh(r.Context(), RefreshInput{RefreshToken: req.RefreshToken})
+
+	user, err := h.service.Refresh(r.Context(), RefreshInput{RefreshToken: token})
 	if err != nil {
 		writeError(w, err)
 		return
 	}
 
 	h.setRefreshCookie(w, user.RefreshToken)
-
-	utils.JSON(w, http.StatusOK, "User login successfully", loginResponse(user))
+	utils.JSON(w, http.StatusOK, "Token refreshed successfully", loginResponse(user))
 }
+
 
 func (h *Handler) ForgetPassword(w http.ResponseWriter, r *http.Request) {
 	var req dto.ForgetPasswordRequestDTO

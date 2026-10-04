@@ -58,7 +58,7 @@ func (r *Repository) UpdateOTP(ctx context.Context, email, otp string, expireAt 
 }
 
 func (r *Repository) ResetPassword(ctx context.Context, email, otp, hashedPassword string) (bool, error) {
-	tag, err := r.db.Exec(ctx, `UPDATE users SET password=$1, otp=NULL, otp_expires_at=NULL
+	tag, err := r.db.Exec(ctx, `UPDATE users SET password=$1, otp=NULL, otp_expires_at=NULL, updated_at=NOW()
 		WHERE email=$2 AND otp=$3 AND otp_expires_at > NOW()`, hashedPassword, email, otp)
 	if err != nil {
 		return false, fmt.Errorf("reset password: %w", err)

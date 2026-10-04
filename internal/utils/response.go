@@ -53,7 +53,11 @@ func Error(w http.ResponseWriter, status int, message string) {
 }
 
 func DecodeJSON(r *http.Request, v any) error {
+	const maxBodyBytes = 1048576 // 1MB
+	r.Body = http.MaxBytesReader(nil, r.Body, maxBodyBytes)
+
 	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
 	err := decoder.Decode(v)
 	if err != nil {
 		var syntaxErr *json.SyntaxError

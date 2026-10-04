@@ -19,7 +19,7 @@ func NewEmail(cfg config.Config) *Email {
 }
 
 func (e *Email) Send(to, subject, body string) error {
-	from, err := mail.ParseAddress(e.cfg.Smtp.Username)
+	from, err := mail.ParseAddress(e.cfg.Smtp.From)
 	if err != nil {
 		return fmt.Errorf("invalid sender email %w", err)
 	}

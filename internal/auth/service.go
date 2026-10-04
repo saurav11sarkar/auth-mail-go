@@ -2,9 +2,10 @@ package auth
 
 import (
 	"context"
+	cryptorand "crypto/rand"
 	"errors"
 	"fmt"
-	"math/rand"
+	"math/big"
 	"strings"
 	"time"
 
@@ -147,11 +148,18 @@ func (s *Service) ForgetPassword(ctx context.Context, input ForgetPasswordInput)
 
 	_, err := s.repo.GetEmail(ctx, email)
 	if err != nil {
+		if errors.Is(err, ErrAccountNotFound) {
+			return nil
+		}
 		return err
 	}
 
-	otpNumber := rand.Intn(900000) + 100000
-	otp := fmt.Sprintf("%d", otpNumber)
+	// otpNumber := rand.Intn(900000) + 100000
+	n, err := cryptorand.Int(cryptorand.Reader, big.NewInt(900000))
+	if err != nil {
+		return fmt.Errorf("failed to generate secure otp: %w", err)
+	}
+	otp := fmt.Sprintf("%06d", n.Int64()+100000)
 	expireAt := time.Now().Add(15 * time.Minute)
 
 	err = s.repo.UpdateOTP(ctx, email, otp, expireAt)

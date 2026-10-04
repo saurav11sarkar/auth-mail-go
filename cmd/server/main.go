@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
 	"net/http"
 	"os"
@@ -40,8 +41,8 @@ func main() {
 
 	go func() {
 		log.Println("Starting server")
-		if err := server.ListenAndServe(); err != nil {
-			log.Fatal(err)
+		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Fatalf("Server failed to start: %v", err)
 		}
 	}()
 	stop := make(chan os.Signal, 1)
