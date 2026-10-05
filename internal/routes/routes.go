@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/saurav11sarkar/go/internal/auth"
+	"github.com/saurav11sarkar/go/internal/categories"
 	"github.com/saurav11sarkar/go/internal/config"
 	"github.com/saurav11sarkar/go/internal/middlewares"
 	"github.com/saurav11sarkar/go/internal/user"
@@ -21,6 +22,7 @@ func NewRouter(deps *Deps, cfg config.Config) http.Handler {
 
 	auth.RegisterRoutes(v1Mux, deps.Auth)
 	user.RegisterRoutes(v1Mux, deps.User, cfg.Auth.JwtAccessSecret)
+	categories.CategoryRouter(v1Mux, deps.Category, cfg.Auth.JwtAccessSecret)
 
 	mux.Handle("/api/v1/", http.StripPrefix("/api/v1", v1Mux))
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {

@@ -5,6 +5,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/saurav11sarkar/go/internal/auth"
+	"github.com/saurav11sarkar/go/internal/categories"
 	"github.com/saurav11sarkar/go/internal/config"
 	"github.com/saurav11sarkar/go/internal/routes"
 	"github.com/saurav11sarkar/go/internal/user"
@@ -20,9 +21,14 @@ func NewHandler(db *pgxpool.Pool, cfg config.Config) (http.Handler, error) {
 	userservice := user.NewService(userrepo)
 	userhandler := user.NewHandler(userservice)
 
+	categoryrepo := categories.NewRepository(db)
+	categoryservice := categories.NewService(categoryrepo, cfg)
+	categoryhandler := categories.NewHandler(categoryservice)
+
 	deps := routes.Deps{
-		Auth: authhandler,
-		User: userhandler,
+		Auth:     authhandler,
+		User:     userhandler,
+		Category: categoryhandler,
 	}
 
 	router := routes.NewRouter(&deps, cfg)
