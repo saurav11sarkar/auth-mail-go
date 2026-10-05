@@ -3,6 +3,7 @@ package categories
 import (
 	"net/http"
 
+	"github.com/google/uuid"
 	"github.com/saurav11sarkar/go/internal/categories/dto"
 	"github.com/saurav11sarkar/go/internal/utils"
 )
@@ -68,5 +69,55 @@ func (h *Handler) GetAllCategories(
 		http.StatusOK,
 		"Categories fetched successfully",
 		response,
+	)
+}
+
+func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
+	var req dto.CategoryRequest
+	if err := utils.DecodeJSON(r, &req); err != nil {
+		writeError(w, err)
+		return
+	}
+	if err := utils.ValidateStruct(req); err != nil {
+		writeError(w, err)
+		return
+	}
+	category, err := h.service.Update(r.Context(), r.PathValue("id"), CategoryInput{Name: req.Name})
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	utils.JSON(w, http.StatusOK, "Category updated successfully", categoryResponse(category))
+}
+
+func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
+	if err := h.service.Delete(r.Context(), r.PathValue("id")); err != nil {
+		writeError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) GetCategoryByID(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
+	id := r.PathValue("id")
+	if _, err := uuid.Parse(id); err != nil {
+		writeError(w, ErrInvalidCategoryInput)
+		return
+	}
+
+	category, err := h.service.GetCategoryByID(r.Context(), id)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+
+	utils.JSON(
+		w,
+		http.StatusOK,
+		"Category fetched successfully",
+		categoryResponse(category),
 	)
 }

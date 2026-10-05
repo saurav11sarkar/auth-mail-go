@@ -103,3 +103,54 @@ func (r *Repository) GetAllCategories(ctx context.Context, q utils.Query) ([]Cat
 	}
 	return categories, total, nil
 }
+
+func (r *Repository) Update(ctx context.Context, category Category) (Category, error) {
+	err := r.db.QueryRow(ctx, `
+		UPDATE categories SET name = $1, slug = $2, updated_at = NOW()
+		WHERE id = $3
+		RETURNING id, name, slug, created_at, updated_at`,
+		category.Name, category.Slug, category.ID,
+	).Scan(&category.ID, &category.Name, &category.Slug, &category.CreatedAt, &category.UpdatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Category{}, ErrCategoryNotFound
+		}
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == "categories_slug_key" {
+			return Category{}, ErrCategoryAlreadyExists
+		}
+		return Category{}, fmt.Errorf("update category: %w", err)
+	}
+	return category, nil
+}
+
+func (r *Repository) Delete(ctx context.Context, id string) error {
+	result, err := r.db.Exec(ctx, "DELETE FROM categories WHERE id = $1", id)
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23503" {
+			return ErrCategoryInUse
+		}
+		return fmt.Errorf("delete category: %w", err)
+	}
+	if result.RowsAffected() == 0 {
+		return ErrCategoryNotFound
+	}
+	return nil
+}
+
+func (r *Repository) GetCategoryByID(ctx context.Context, id string) (Category, error) {
+	var category Category
+	err := r.db.QueryRow(ctx, `select id,name,slug,created_at,updated_at from categories where id = $1`, id).Scan(&category.ID, &category.Name, &category.Slug, &category.CreatedAt, &category.UpdatedAt)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return Category{}, ErrCategoryNotFound
+		}
+		return Category{}, fmt.Errorf("get category: %w", err)
+	}
+	return category, nil
+}
+
+func (r *Repository) DeleteByID(ctx context.Context, id string) error {
+	return r.Delete(ctx, id)
+}

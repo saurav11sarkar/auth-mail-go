@@ -20,6 +20,8 @@ func categoryResponse(category Category) dto.CategoryResponse {
 
 func writeError(w http.ResponseWriter, err error) {
 	switch {
+	case errors.Is(err, ErrCategoryInUse):
+		err = utils.NewAppError(http.StatusConflict, "CATEGORY_IN_USE", "Category is referenced by other records")
 	case errors.Is(err, ErrInvalidCategoryInput):
 		err = utils.NewAppError(http.StatusBadRequest, "INVALID_CATEGORY", "Invalid category input")
 	case errors.Is(err, ErrCategoryAlreadyExists):

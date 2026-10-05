@@ -5,6 +5,7 @@ import (
 )
 
 var (
+	ErrCategoryInUse         = errors.New("category is in use")
 	ErrInvalidCategoryInput  = errors.New("invalid category input")
 	ErrCategoryAlreadyExists = errors.New("category already exists")
 	ErrInvalidListQuery      = errors.New("invalid list query")
