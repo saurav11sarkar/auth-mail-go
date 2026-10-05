@@ -70,7 +70,7 @@ func (s *Service) GetAllCategories(ctx context.Context, q utils.Query) (Categori
 	for key, value := range q.Filters {
 		switch key {
 		case "name", "slug":
-			if len([]rune(value)) > 100 {
+			if len([]rune(value)) > 200 {
 				return CategoriesResult{}, ErrInvalidListQuery
 			}
 		default:

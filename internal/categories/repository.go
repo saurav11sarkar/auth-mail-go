@@ -45,10 +45,10 @@ func (r *Repository) GetAllCategories(ctx context.Context, q utils.Query) ([]Cat
 		where += " AND (name ILIKE @search OR slug ILIKE @search)"
 		args["search"] = "%" + search + "%"
 	}
-	for _, colum := range []string{"name", "slug"} {
-		if value := q.Filters[colum]; value != "" {
-			where += " and " + colum + " = @" + colum
-			args[colum] = value
+	for _, column := range []string{"name", "slug"} {
+		if value := q.Filters[column]; value != "" {
+			where += " AND " + column + " = @" + column
+			args[column] = value
 		}
 	}
 
@@ -58,21 +58,24 @@ func (r *Repository) GetAllCategories(ctx context.Context, q utils.Query) ([]Cat
 		return nil, 0, fmt.Errorf("count category %w", err)
 	}
 
-	sortClomns := map[string]string{
+	sortColumns := map[string]string{
 		"name":      "name",
 		"slug":      "slug",
 		"createdAt": "created_at",
 	}
 
-	sortBy := sortClomns[q.SortBy]
+	sortBy := sortColumns[q.SortBy]
 	if sortBy == "" {
 		sortBy = "created_at"
 	}
 
-	sortOrder := q.SortOrder
-	if q.SortOrder == "" {
-		sortOrder = "desc"
+	sortOrder := "DESC"
+	if q.SortOrder == "asc" {
+		sortOrder = "ASC"
 	}
+	args["limit"] = q.Limit
+	args["offset"] = q.Offset()
+
 	query := `select id,name,slug,created_at,updated_at from categories` + where + " order by " + sortBy + " " + sortOrder + ", id asc" + " LIMIT @limit OFFSET @offset"
 	rows, err := r.db.Query(ctx, query, args)
 	if err != nil {
